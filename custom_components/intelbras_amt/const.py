@@ -33,7 +33,8 @@ DEFAULT_SERVER_HOST: Final = "0.0.0.0"
 RESPONSE_TIMEOUT: Final = 8  # seconds
 
 # Commands (ASCII)
-CMD_STATUS: Final = bytes([0x5B])  # '[' - Full status (54 bytes response)
+CMD_STATUS_5A: Final = bytes([0x5A])  # 'Z' - Partial statis AMT 2018 E SMART (43 bytes response)
+CMD_STATUS_5B: Final = bytes([0x5B])  # '[' - Full status (54 bytes response)
 CMD_ARM: Final = bytes([0x41])  # 'A'
 CMD_DISARM: Final = bytes([0x44])  # 'D'
 CMD_STAY: Final = bytes([0x41, 0x50])  # 'AP'
@@ -101,11 +102,13 @@ OFFSET_PGM_SIREN_STATUS: Final = 46
 MODEL_AMT_4010_SMART: Final = 0x41
 MODEL_AMT_2018: Final = 0x39
 MODEL_AMT_1016: Final = 0x38
+MODEL_AMT_2018_E_SMART: Final = 0x34
 
 MODEL_NAMES: Final = {
     MODEL_AMT_4010_SMART: "AMT 4010 SMART",
     MODEL_AMT_2018: "AMT 2018",
     MODEL_AMT_1016: "AMT 1016",
+    MODEL_AMT_2018_E_SMART: "AMT 2018 E SMART"
 }
 
 # Status bits
@@ -124,6 +127,7 @@ PARTITION_TRIGGERED_BIT: Final = 0x04
 MAX_ZONES_4010: Final = 64
 MAX_ZONES_2018: Final = 18
 MAX_ZONES_1016: Final = 16
+MAX_ZONES_2018_E_SMART: Final = 48
 MAX_PARTITIONS: Final = 4
 MAX_PGMS: Final = 19  # Expanded from 3 to 19
 

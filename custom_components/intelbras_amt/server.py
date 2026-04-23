@@ -28,7 +28,7 @@ from .const import (
     CMD_STAY_PARTITION_B,
     CMD_STAY_PARTITION_C,
     CMD_STAY_PARTITION_D,
-    CMD_STATUS,
+    CMD_STATUS_5B,
     CONNECTION_TIMEOUT,
     DATA_AC_POWER,
     DATA_ARMED,
@@ -573,7 +573,7 @@ class AMTServer:
 
     async def get_status(self) -> dict[str, Any]:
         """Get current status from the panel."""
-        response = await self._send_command(CMD_STATUS)
+        response = await self._send_command(CMD_STATUS_5B)
         status = self._parse_response(response)
         self._last_status = status
         if self._status_callback:
