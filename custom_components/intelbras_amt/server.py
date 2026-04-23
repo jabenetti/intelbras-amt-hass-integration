@@ -28,8 +28,8 @@ from .const import (
     CMD_STAY_PARTITION_B,
     CMD_STAY_PARTITION_C,
     CMD_STAY_PARTITION_D,
+    CMD_STATUS_5A,
     CMD_STATUS_5B,
-    CONNECTION_TIMEOUT,
     DATA_AC_POWER,
     DATA_ARMED,
     DATA_AUX_OVERLOAD,
@@ -69,13 +69,11 @@ from .const import (
     FRAME_SEPARATOR,
     FRAME_START,
     MAX_PGMS,
-    MAX_ZONES_2018,
-    MAX_ZONES_4010,
+    MAX_ZONES,
     MAX_ZONES_LOW_BATTERY,
     MAX_ZONES_SHORT_CIRCUIT,
     MAX_ZONES_TAMPER,
-    MODEL_AMT_2018,
-    MODEL_AMT_4010_SMART,
+    MODEL_ID,
     MODEL_NAMES,
     NACK_MESSAGES,
     RESPONSE_TIMEOUT,
@@ -121,6 +119,7 @@ class AMTConnection:
         self.address = address
         self.account: str | None = None
         self.mac_suffix: str | None = None
+        self.panel_model: int | None = None
         self.pending_response: asyncio.Future | None = None
         self.last_heartbeat: float = 0
         self._lock = asyncio.Lock()
@@ -454,13 +453,20 @@ class AMTServer:
     def _parse_response(self, data: bytes) -> dict[str, Any]:
         """Parse status response into structured data."""
         # Response format: [length] [0xE9] [content...] [checksum]
-        # Content is the status data (54 bytes for 0x5B command)
+        # Content is the status data (43 bytes for 0x5A command, 54 bytes for 0x5B command)
         if len(data) < 10:
             raise AMTProtocolError(f"Response too short: {len(data)} bytes")
 
         # Skip length byte, command byte (0xE9), get content excluding checksum
         content = data[2:-1]
         _LOGGER.debug("Parsing status content (%d bytes): %s", len(content), content.hex())
+
+        # For 0x5A response, content is 43 bytes
+        # Based on the actual response we received:
+        # Bytes 0-5: Zones open (48 zones, 8 bytes)
+        # Bytes 6-11: Zones violated
+        # Bytes 12-17: Zones bypassed (likely)
+        # Bytes 18+: Model, firmware, status, etc.
 
         # For 0x5B response, content is 54 bytes
         # Based on the actual response we received:
@@ -469,28 +475,28 @@ class AMTServer:
         # Bytes 16-23: Zones bypassed (likely)
         # Bytes 24+: Model, firmware, status, etc.
 
-        max_zones = MAX_ZONES_4010  # Default, will be updated if model detected
+        # Parse panel model
+        model_id = content[18] if len(content) == 43 else content[24] if len(content) == 54 else None
+        model_name = MODEL_NAMES[model_id]
+        if model_id is None:
+            raise AMTProtocolError(f"Invalid status response: {len(data)} bytes. HEX: {content.hex}")
+
+        max_zones = MAX_ZONES[model_id]
 
         # Parse zone lists from content
         zones_open = self._parse_zones(content, 0, max_zones)
         zones_violated = self._parse_zones(content, 8, max_zones)
         zones_bypassed = self._parse_zones(content, 16, max_zones)
 
+        # Adjust max zones based on model
+        zones_open = zones_open[:max_zones]
+        zones_violated = zones_violated[:max_zones]
+        zones_bypassed = zones_bypassed[:max_zones]
+
         # Calculate zone counts
         zones_open_count = sum(zones_open)
         zones_violated_count = sum(zones_violated)
         zones_bypassed_count = sum(zones_bypassed)
-
-        # Parse model ID from content (position may vary)
-        model_id = content[24] if len(content) > 24 else 0
-        model_name = MODEL_NAMES.get(model_id, f"AMT (0x{model_id:02x})")
-
-        # Adjust max zones based on model
-        if model_id == MODEL_AMT_2018:
-            max_zones = MAX_ZONES_2018
-            zones_open = zones_open[:max_zones]
-            zones_violated = zones_violated[:max_zones]
-            zones_bypassed = zones_bypassed[:max_zones]
 
         # Parse firmware
         firmware_byte = content[26] if len(content) > 26 else 0
@@ -573,7 +579,11 @@ class AMTServer:
 
     async def get_status(self) -> dict[str, Any]:
         """Get current status from the panel."""
-        response = await self._send_command(CMD_STATUS_5B)
+        if self.model is None or self._connection.panel_model == MODEL_ID.AMT_2018_E_SMART:
+            response = await self._send_command(CMD_STATUS_5A)
+        else:
+            response = await self._send_command(CMD_STATUS_5B)
+
         status = self._parse_response(response)
         self._last_status = status
         if self._status_callback:
