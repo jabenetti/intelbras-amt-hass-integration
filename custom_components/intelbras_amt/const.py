@@ -33,7 +33,7 @@ DEFAULT_SERVER_HOST: Final = "0.0.0.0"
 RESPONSE_TIMEOUT: Final = 8  # seconds
 
 # Commands (ASCII)
-CMD_STATUS_5A: Final = bytes([0x5A])  # 'Z' - Partial statis AMT 2018 E SMART (43 bytes response)
+CMD_STATUS_5A: Final = bytes([0x5A])  # 'Z' - Partial status AMT 2018 E SMART (43 bytes response)
 CMD_STATUS_5B: Final = bytes([0x5B])  # '[' - Full status (54 bytes response)
 CMD_ARM: Final = bytes([0x41])  # 'A'
 CMD_DISARM: Final = bytes([0x44])  # 'D'
@@ -126,7 +126,7 @@ PARTITION_TRIGGERED_BIT: Final = 0x04
 
 # Number of zones/partitions/PGMs by model
 MAX_ZONES: Final = {
-    MODEL_ID.AMT_4010: 64,
+    MODEL_ID.AMT_4010_SMART: 64,
     MODEL_ID.AMT_2018: 18,
     MODEL_ID.AMT_1016: 16,
     MODEL_ID.AMT_2018_E_SMART: 48
