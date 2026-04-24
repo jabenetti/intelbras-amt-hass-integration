@@ -1,0 +1,20 @@
+# Reglas importantes para este proyecto
+
+## Reglas generales del proyecto
+- Responde siempre en español.
+- Los nombres de variables, constantes, clases, comentarios o cualquier cosa que agregues al programa deben estar siempre en inglés.
+- Mantén el código simple y fácil de leer.
+- Evita hardcoding de constantes
+- Nunca subas secrets o credenciales.
+
+## Python + venv
+- Siempre usa el entorno virtual del proyecto (.venv) cuando trabajes con Python.
+- Antes de cualquier comando relacionado con pip, activa primero el venv: `source .venv/bin/activate`
+- Usa **siempre** `python -m pip` para instalar, actualizar o desinstalar paquetes.
+- Después de instalar, actualizar o desinstalar cualquier paquete (con `install` o `uninstall`), **actualiza automáticamente** el archivo requirements.txt usando:
+  `python -m pip freeze > requirements.txt`
+- Si el usuario te pide que quites paquetes, después de desinstalar actualiza también el requirements.txt.
+- Nunca uses `pip3 install`, `pip install` ni `pip3 uninstall` directamente. Siempre `python -m pip`.
+- Si no existe `requirements.txt`, créalo automáticamente después de la primera instalación.
+- No subas nunca la carpeta `.venv` a Git (ya debería estar en .gitignore).
+- Si el intérprete de Python seleccionado en VS Code es el del .venv, respétalo siempre.
