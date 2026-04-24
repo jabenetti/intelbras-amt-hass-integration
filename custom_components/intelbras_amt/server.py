@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from typing import Any, Callable, Awaitable
+from datetime import datetime, timedelta, timezone
 
 from .const import (
     CMD_ARM,
@@ -14,6 +15,7 @@ from .const import (
     CMD_ARM_PARTITION_D,
     CMD_BYPASS,
     CMD_CONNECTION_INFO,
+    CMD_DATETIME,
     CMD_DISARM,
     CMD_DISARM_PARTITION_A,
     CMD_DISARM_PARTITION_B,
@@ -360,6 +362,9 @@ class AMTServer:
         if command == CMD_CONNECTION_INFO:
             await self._handle_connection_info(connection, content)
             return
+        elif command == CMD_DATETIME:
+            await self._handle_datetime(connection, content)
+            return
 
         # Check if this is a response to a pending command
         if connection.pending_response and not connection.pending_response.done():
@@ -391,6 +396,31 @@ class AMTServer:
         ack = self._build_ack_frame()
         connection.writer.write(ack)
         await connection.writer.drain()
+
+    async def _handle_datetime(
+            self, connection: AMTConnection, content: bytes
+    ) -> None:
+        """Handle date/time request (0x80)."""
+        tz_offset_hours = content[0] if len(content) > 0 else 0
+        utc_now = datetime.now(timezone.utc)
+        local_dt = utc_now - timedelta(hours=tz_offset_hours)
+        day = local_dt.day
+        month = local_dt.month
+        year_byte = local_dt.year % 100
+        # Sunday=1, Monday=2, ..., Saturday=7
+        # Python isoweekday(): Mon=1 ... Sun=7 -> ( % 7 ) + 1 -> Sun=1, Mon=2, ...
+        weekday = (local_dt.isoweekday() % 7) + 1
+        hour = local_dt.hour
+        minute = local_dt.minute
+        second = local_dt.second
+        response_content = bytes([0x80, day, month, year_byte, weekday, hour, minute, second])
+        length = len(response_content)  # 8
+        frame_no_checksum = bytes([length]) + response_content
+        checksum = self._calculate_checksum(frame_no_checksum)
+        response_frame = frame_no_checksum + bytes([checksum])
+        connection.writer.write(response_frame)
+        await connection.writer.drain()
+        _LOGGER.debug("Date/time response sent (tz_offset_hours=%d)", tz_offset_hours)
 
     async def _send_command(self, command: bytes, password: str | None = None) -> bytes:
         """Send a command and wait for response."""

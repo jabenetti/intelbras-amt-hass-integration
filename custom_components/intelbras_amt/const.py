@@ -27,6 +27,7 @@ FRAME_SEPARATOR: Final = 0x21
 FRAME_HEARTBEAT: Final = 0xF7
 FRAME_ACK: Final = 0xFE
 CMD_CONNECTION_INFO: Final = 0x94  # Central sends this on connect
+CMD_DATETIME: Final = 0x80   # Central requesting date/time
 
 # Server mode defaults
 DEFAULT_SERVER_HOST: Final = "0.0.0.0"
