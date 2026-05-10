@@ -28,6 +28,9 @@ FRAME_HEARTBEAT: Final = 0xF7
 FRAME_ACK: Final = 0xFE
 CMD_CONNECTION_INFO: Final = 0x94  # Central sends this on connect
 CMD_DATETIME: Final = 0x80   # Central requesting date/time
+CMD_CONTACTID_EVENT: Final = 0xB0  # Central sends contact ID events
+CMD_CONTACTID_EVENT_DATETIME: Final = 0xB4  # Central sends contact ID events with date/time
+CMD_CONTACTID_EVENT_PICTURE: Final = 0xB5  # Central sends contact ID events with picture 
 
 # Server mode defaults
 DEFAULT_SERVER_HOST: Final = "0.0.0.0"
@@ -101,16 +104,24 @@ OFFSET_PGM_SIREN_STATUS: Final = 46
 
 # Model IDs
 class MODEL_ID:
-    AMT_4010_SMART: Final = 0x41
-    AMT_2018: Final = 0x39
-    AMT_1016: Final = 0x38
+    AMT_2018_E_EG: Final = 0x1E
+    AMT_4010: Final = 0x41
+    AMT_1016_NET: Final = 0x61
+    AMT_2110: Final = 0x20
+    AMT_2118_EG: Final = 0x2E
+    ANM_24_NET: Final = 0x24
+    AMT_2018_E3G: Final = 0x32
     AMT_2018_E_SMART: Final = 0x34
 
 MODEL_NAMES: Final = {
-    MODEL_ID.AMT_4010_SMART: "AMT 4010 SMART",
-    MODEL_ID.AMT_2018: "AMT 2018",
-    MODEL_ID.AMT_1016: "AMT 1016",
-    MODEL_ID.AMT_2018_E_SMART: "AMT 2018 E SMART"
+    MODEL_ID.AMT_2018_E_EG: "AMT 2018 E/EG",
+    MODEL_ID.AMT_4010: "AMT 4010",
+    MODEL_ID.AMT_1016_NET: "AMT 1016 NET",
+    MODEL_ID.AMT_2110: "AMT 2110",
+    MODEL_ID.AMT_2118_EG: "AMT 2118 EG",
+    MODEL_ID.ANM_24_NET: "ANM 24 NET",
+    MODEL_ID.AMT_2018_E3G: "AMT 2018 E3G",
+    MODEL_ID.AMT_2018_E_SMART: "AMT 2018 E SMART",
 }
 
 # Status bits
@@ -127,10 +138,14 @@ PARTITION_TRIGGERED_BIT: Final = 0x04
 
 # Number of zones/partitions/PGMs by model
 MAX_ZONES: Final = {
-    MODEL_ID.AMT_4010_SMART: 64,
-    MODEL_ID.AMT_2018: 18,
-    MODEL_ID.AMT_1016: 16,
-    MODEL_ID.AMT_2018_E_SMART: 48
+    MODEL_ID.AMT_2018_E_EG: 48,
+    MODEL_ID.AMT_4010: 64,
+    MODEL_ID.AMT_1016_NET: 40,
+    MODEL_ID.AMT_2110: 10,
+    MODEL_ID.AMT_2118_EG: 48,
+    MODEL_ID.ANM_24_NET: 24,
+    MODEL_ID.AMT_2018_E3G: 48,
+    MODEL_ID.AMT_2018_E_SMART: 48,
 }
 
 MAX_PARTITIONS: Final = 4

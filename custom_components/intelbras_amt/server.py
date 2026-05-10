@@ -15,6 +15,9 @@ from .const import (
     CMD_ARM_PARTITION_D,
     CMD_BYPASS,
     CMD_CONNECTION_INFO,
+    CMD_CONTACTID_EVENT,
+    CMD_CONTACTID_EVENT_DATETIME,
+    CMD_CONTACTID_EVENT_PICTURE,
     CMD_DATETIME,
     CMD_DISARM,
     CMD_DISARM_PARTITION_A,
@@ -370,6 +373,13 @@ class AMTServer:
         if connection.pending_response and not connection.pending_response.done():
             connection.pending_response.set_result(frame)
             return
+        
+        # Contact_ID events (0xB0, 0xB4, 0xB5)
+        if command in (CMD_CONTACTID_EVENT, CMD_CONTACTID_EVENT_DATETIME, CMD_CONTACTID_EVENT_PICTURE):
+            _LOGGER.info("Contact ID event received: cmd=0x%02X, content=%s", command, content.hex())
+            ack = self._build_ack_frame()
+            connection.writer.write(ack)
+            await connection.writer.drain()
 
         # ISECMobile frame (0xE9) - could be unsolicited status
         if command == FRAME_START:
@@ -458,19 +468,28 @@ class AMTServer:
             finally:
                 self._connection.pending_response = None
 
-    def _parse_zones(self, data: bytes, offset: int, max_zones: int) -> list[bool]:
+    def _parse_zones(self, data: bytes, offset: int, length: int) -> list[bool]:
         """Parse zone status bytes into a list of booleans."""
         zones = []
-        for byte_idx in range(8):  # 8 bytes = 64 zones max
+        for byte_idx in range(length):
             if offset + byte_idx >= len(data):
                 break
             byte = data[offset + byte_idx]
             for bit in range(8):
-                zone_num = byte_idx * 8 + bit
-                if zone_num >= max_zones:
-                    break
                 zones.append(bool(byte & (1 << bit)))
-        return zones[:max_zones]
+        return zones
+
+#        zones = []
+#        for byte_idx in range(8):  # 8 bytes = 64 zones max
+#            if offset + byte_idx >= len(data):
+#                break
+#            byte = data[offset + byte_idx]
+#            for bit in range(8):
+#                zone_num = byte_idx * 8 + bit
+#                if zone_num >= max_zones:
+#                    break
+#                zones.append(bool(byte & (1 << bit)))
+#        return zones[:max_zones]
 
     def _parse_partition_status(self, status_byte: int) -> dict[str, bool]:
         """Parse partition status byte."""
@@ -493,30 +512,74 @@ class AMTServer:
 
         # For 0x5A response, content is 43 bytes
         # Based on the actual response we received:
-        # Bytes 0-5: Zones open (48 zones, 8 bytes)
+        # Bytes 0-5: Zones open (48 zones)
         # Bytes 6-11: Zones violated
         # Bytes 12-17: Zones bypassed (likely)
-        # Bytes 18+: Model, firmware, status, etc.
+        # Byte 18: Model ID
+        # Byte 19: Firmware version
+        # Byte 20: Partitioning enabled (0-1)
+        # Byte 21: Active partitions (bit 0=A, bit 1=B)
+        # Byte 22: General status
+        # Byte 23: Hour
+        # Byte 24: Minute
+        # Byte 25: Day
+        # Byte 26: Month
+        # Byte 27: Year (2-digit)
+        # Byte 28: Power status
+        # Byte 29: BUS errors
+        # Byte 30: Battery level
+        # Byte 31: Keypad tamper
+        # Byte 32: System errors
+        # Bytes 33-34: Zones tamper
+        # Bytes 35-36: Zones short circuit
+        # Byte 37: Siren/PGM status
+        # Bytes 38-42: Low battery in wireless sensors
 
         # For 0x5B response, content is 54 bytes
         # Based on the actual response we received:
-        # Bytes 0-7: Zones open (64 zones, 8 bytes)
+        # Bytes 0-7: Zones open (64 zones)
         # Bytes 8-15: Zones violated
         # Bytes 16-23: Zones bypassed (likely)
-        # Bytes 24+: Model, firmware, status, etc.
+        # Byte 24: Model ID
+        # Byte 25: Firmware version
+        # Byte 26: Partitioning enabled (0-1)
+        # Byte 27: Active partitions A/B (bit 0=A, bit 1=B)
+        # Byte 28: Active partitions C/D (bit 0=C, bit 1=D)
+        # Byte 29: General status
+        # Byte 30: Hour
+        # Byte 31: Minute
+        # Byte 32: Day
+        # Byte 33: Month
+        # Byte 34: Year (2-digit)
+        # Byte 35: Power status
+        # Bytes 36-39: BUS errors
+        # Byte 40: Battery level
+        # Byte 41: Keypad tamper
+        # Byte 42: System errors
+        # Byte 43: Zones tamper
+        # Byte 44: Zones short circuit
+        # Byte 45: Siren/PGM status
+        # Bytes 46-51: Low battery in wireless sensors
+        # Bytes 52-53: PGM extender status
+
+        # Identify response type
+        short_response = len(content) == 43
+        long_response = len(content) == 54
+        if not short_response and not long_response:
+            raise AMTProtocolError(f"Unexpected response length: {len(content)} bytes")
 
         # Parse panel model
-        model_id = content[18] if len(content) == 43 else content[24] if len(content) == 54 else None
+        model_id = content[18] if short_response else content[24] if long_response else None
         model_name = MODEL_NAMES[model_id]
         if model_id is None:
-            raise AMTProtocolError(f"Invalid status response: {len(data)} bytes. HEX: {content.hex}")
+            raise AMTProtocolError(f"Invalid model number in status response: {len(data)} bytes. HEX: {content.hex}")
 
         max_zones = MAX_ZONES[model_id]
 
         # Parse zone lists from content
-        zones_open = self._parse_zones(content, 0, max_zones)
-        zones_violated = self._parse_zones(content, 8, max_zones)
-        zones_bypassed = self._parse_zones(content, 16, max_zones)
+        zones_open = self._parse_zones(content, 0, 8 if long_response else 6)
+        zones_violated = self._parse_zones(content, 8 if long_response else 6, 8 if long_response else 6)
+        zones_bypassed = self._parse_zones(content, 16 if long_response else 12, 8 if long_response else 6)
 
         # Adjust max zones based on model
         zones_open = zones_open[:max_zones]
@@ -529,12 +592,12 @@ class AMTServer:
         zones_bypassed_count = sum(zones_bypassed)
 
         # Parse firmware
-        firmware_byte = content[26] if len(content) > 26 else 0
+        firmware_byte = content[25] if long_response else content[19]
         firmware = f"{(firmware_byte >> 4) & 0x0F}.{firmware_byte & 0x0F}"
 
         # Parse partition status
-        part_ab = content[27] if len(content) > 27 else 0
-        part_cd = content[28] if len(content) > 28 else 0
+        part_ab = content[27] if long_response else content[21]
+        part_cd = content[28] if long_response else 0
         partitions = {
             "A": self._parse_partition_status(part_ab & 0x0F),
             "B": self._parse_partition_status((part_ab >> 4) & 0x0F),
@@ -543,25 +606,25 @@ class AMTServer:
         }
 
         # Parse central status
-        central_status = content[29] if len(content) > 29 else 0
+        central_status = content[29] if long_response else content[22]
         armed = bool(central_status & 0x08)
         stay = bool(central_status & 0x10)
         triggered = bool(central_status & 0x04)
 
         # Parse power/battery status
-        power_status = content[39] if len(content) > 39 else 0
+        power_status = content[35] if long_response else content[28]
         ac_power = bool(power_status & 0x80)
         battery_connected = not bool(power_status & 0x40)
         battery_low = bool(power_status & 0x20)
 
         # Battery level
-        battery_level = content[40] if len(content) > 40 else 0
+        battery_level = content[40] if long_response else content[30]
         if battery_level > 100:
             battery_level = 100
 
         # PGM/Siren status
-        pgm_byte = content[41] if len(content) > 41 else 0
-        siren = bool(pgm_byte & 0x01)
+        pgm_byte = content[41] if long_response else content[37]
+        siren = bool(pgm_byte & 0x04)
         pgms = [False] * MAX_PGMS
         for i in range(min(8, MAX_PGMS)):
             pgms[i] = bool(pgm_byte & (1 << (i + 1))) if i < 7 else False
