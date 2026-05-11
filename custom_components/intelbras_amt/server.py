@@ -105,7 +105,9 @@ class AMTNackError(AMTServerError):
     def __init__(self, nack_code: int, message: str | None = None) -> None:
         """Initialize the NACK error."""
         self.nack_code = nack_code
-        self.message = message or NACK_MESSAGES.get(nack_code, f"Erro desconhecido (0x{nack_code:02X})")
+        self.message = message or NACK_MESSAGES.get(
+            nack_code, f"Erro desconhecido (0x{nack_code:02X})"
+        )
         super().__init__(self.message)
 
 
@@ -238,10 +240,15 @@ class AMTServer:
         """Build a protocol frame with checksum."""
         pwd = password or self._password
         # Password is sent as ASCII characters
-        pwd_bytes = pwd.encode('ascii')
+        pwd_bytes = pwd.encode("ascii")
 
         # Frame: [Length] [0xE9] [0x21] [PASSWORD_ASCII] [COMMAND] [0x21] [CHECKSUM]
-        inner = bytes([FRAME_START, FRAME_SEPARATOR]) + pwd_bytes + command + bytes([FRAME_SEPARATOR])
+        inner = (
+            bytes([FRAME_START, FRAME_SEPARATOR])
+            + pwd_bytes
+            + command
+            + bytes([FRAME_SEPARATOR])
+        )
 
         # Length = command byte + content (not including length byte and checksum)
         length = len(inner)
@@ -250,20 +257,13 @@ class AMTServer:
         checksum = self._calculate_checksum(frame_without_checksum)
         return frame_without_checksum + bytes([checksum])
 
-    def _build_ack_frame(self) -> bytes:
-        """Build a simple ACK frame."""
-        # ACK frame: [02] [FE] [checksum]
-        frame = bytes([0x01, FRAME_ACK])
-        checksum = self._calculate_checksum(frame)
-        return frame + bytes([checksum])
-
     async def _handle_client(
         self,
         reader: asyncio.StreamReader,
         writer: asyncio.StreamWriter,
     ) -> None:
         """Handle incoming client connection."""
-        addr = writer.get_extra_info('peername')
+        addr = writer.get_extra_info("peername")
         _LOGGER.info("Panel connected from %s:%s", addr[0], addr[1])
 
         # Close existing connection if any
@@ -347,7 +347,7 @@ class AMTServer:
         # Heartbeat
         if len(frame) == 1 and frame[0] == FRAME_HEARTBEAT:
             _LOGGER.debug("Heartbeat received, sending ACK")
-            ack = self._build_ack_frame()
+            ack = b"\xfe"
             connection.writer.write(ack)
             await connection.writer.drain()
             connection.last_heartbeat = asyncio.get_event_loop().time()
@@ -373,11 +373,19 @@ class AMTServer:
         if connection.pending_response and not connection.pending_response.done():
             connection.pending_response.set_result(frame)
             return
-        
+
         # Contact_ID events (0xB0, 0xB4, 0xB5)
-        if command in (CMD_CONTACTID_EVENT, CMD_CONTACTID_EVENT_DATETIME, CMD_CONTACTID_EVENT_PICTURE):
-            _LOGGER.info("Contact ID event received: cmd=0x%02X, content=%s", command, content.hex())
-            ack = self._build_ack_frame()
+        if command in (
+            CMD_CONTACTID_EVENT,
+            CMD_CONTACTID_EVENT_DATETIME,
+            CMD_CONTACTID_EVENT_PICTURE,
+        ):
+            _LOGGER.info(
+                "Contact ID event received: cmd=0x%02X, content=%s",
+                command,
+                content.hex(),
+            )
+            ack = b"\xfe"
             connection.writer.write(ack)
             await connection.writer.drain()
 
@@ -392,7 +400,7 @@ class AMTServer:
         """Handle connection info command (0x94)."""
         # Parse account and MAC from content if available
         if len(content) >= 4:
-            connection.account = content[:4].decode('ascii', errors='replace')
+            connection.account = content[:4].decode("ascii", errors="replace")
         if len(content) >= 10:
             connection.mac_suffix = content[4:10].hex()
 
@@ -403,13 +411,11 @@ class AMTServer:
         )
 
         # Send ACK
-        ack = self._build_ack_frame()
+        ack = b"\xfe"
         connection.writer.write(ack)
         await connection.writer.drain()
 
-    async def _handle_datetime(
-            self, connection: AMTConnection, content: bytes
-    ) -> None:
+    async def _handle_datetime(self, connection: AMTConnection, content: bytes) -> None:
         """Handle date/time request (0x80)."""
         tz_offset_hours = content[0] if len(content) > 0 else 0
         utc_now = datetime.now(timezone.utc)
@@ -423,7 +429,9 @@ class AMTServer:
         hour = local_dt.hour
         minute = local_dt.minute
         second = local_dt.second
-        response_content = bytes([0x80, day, month, year_byte, weekday, hour, minute, second])
+        response_content = bytes(
+            [0x80, day, month, year_byte, weekday, hour, minute, second]
+        )
         length = len(response_content)  # 8
         frame_no_checksum = bytes([length]) + response_content
         checksum = self._calculate_checksum(frame_no_checksum)
@@ -479,17 +487,17 @@ class AMTServer:
                 zones.append(bool(byte & (1 << bit)))
         return zones
 
-#        zones = []
-#        for byte_idx in range(8):  # 8 bytes = 64 zones max
-#            if offset + byte_idx >= len(data):
-#                break
-#            byte = data[offset + byte_idx]
-#            for bit in range(8):
-#                zone_num = byte_idx * 8 + bit
-#                if zone_num >= max_zones:
-#                    break
-#                zones.append(bool(byte & (1 << bit)))
-#        return zones[:max_zones]
+    #        zones = []
+    #        for byte_idx in range(8):  # 8 bytes = 64 zones max
+    #            if offset + byte_idx >= len(data):
+    #                break
+    #            byte = data[offset + byte_idx]
+    #            for bit in range(8):
+    #                zone_num = byte_idx * 8 + bit
+    #                if zone_num >= max_zones:
+    #                    break
+    #                zones.append(bool(byte & (1 << bit)))
+    #        return zones[:max_zones]
 
     def _parse_partition_status(self, status_byte: int) -> dict[str, bool]:
         """Parse partition status byte."""
@@ -508,7 +516,9 @@ class AMTServer:
 
         # Skip length byte, command byte (0xE9), get content excluding checksum
         content = data[2:-1]
-        _LOGGER.debug("Parsing status content (%d bytes): %s", len(content), content.hex())
+        _LOGGER.debug(
+            "Parsing status content (%d bytes): %s", len(content), content.hex()
+        )
 
         # For 0x5A response, content is 43 bytes
         # Based on the actual response we received:
@@ -569,17 +579,25 @@ class AMTServer:
             raise AMTProtocolError(f"Unexpected response length: {len(content)} bytes")
 
         # Parse panel model
-        model_id = content[18] if short_response else content[24] if long_response else None
+        model_id = (
+            content[18] if short_response else content[24] if long_response else None
+        )
         model_name = MODEL_NAMES[model_id]
         if model_id is None:
-            raise AMTProtocolError(f"Invalid model number in status response: {len(data)} bytes. HEX: {content.hex}")
+            raise AMTProtocolError(
+                f"Invalid model number in status response: {len(data)} bytes. HEX: {content.hex}"
+            )
 
         max_zones = MAX_ZONES[model_id]
 
         # Parse zone lists from content
         zones_open = self._parse_zones(content, 0, 8 if long_response else 6)
-        zones_violated = self._parse_zones(content, 8 if long_response else 6, 8 if long_response else 6)
-        zones_bypassed = self._parse_zones(content, 16 if long_response else 12, 8 if long_response else 6)
+        zones_violated = self._parse_zones(
+            content, 8 if long_response else 6, 8 if long_response else 6
+        )
+        zones_bypassed = self._parse_zones(
+            content, 16 if long_response else 12, 8 if long_response else 6
+        )
 
         # Adjust max zones based on model
         zones_open = zones_open[:max_zones]
@@ -672,7 +690,10 @@ class AMTServer:
 
     async def get_status(self) -> dict[str, Any]:
         """Get current status from the panel."""
-        if self.model is None or self._connection.panel_model == MODEL_ID.AMT_2018_E_SMART:
+        if (
+            self._connection.panel_model is None
+            or self._connection.panel_model == MODEL_ID.AMT_2018_E_SMART
+        ):
             response = await self._send_command(CMD_STATUS_5A)
         else:
             response = await self._send_command(CMD_STATUS_5B)
@@ -709,7 +730,9 @@ class AMTServer:
         pwd = password or self._partition_passwords.get(partition) or self._password
         await self._send_command(commands[partition], pwd)
 
-    async def arm_stay_partition(self, partition: str, password: str | None = None) -> None:
+    async def arm_stay_partition(
+        self, partition: str, password: str | None = None
+    ) -> None:
         """Arm a specific partition in stay mode."""
         commands = {
             "A": CMD_STAY_PARTITION_A,
@@ -723,7 +746,9 @@ class AMTServer:
         pwd = password or self._partition_passwords.get(partition) or self._password
         await self._send_command(commands[partition], pwd)
 
-    async def disarm_partition(self, partition: str, password: str | None = None) -> None:
+    async def disarm_partition(
+        self, partition: str, password: str | None = None
+    ) -> None:
         """Disarm a specific partition."""
         commands = {
             "A": CMD_DISARM_PARTITION_A,
@@ -815,7 +840,9 @@ class AMTServer:
                 "response_length": len(response),
             }
         except AMTNackError as e:
-            _LOGGER.warning("Raw command NACK: %s (code=0x%02X)", e.message, e.nack_code)
+            _LOGGER.warning(
+                "Raw command NACK: %s (code=0x%02X)", e.message, e.nack_code
+            )
             return {
                 "success": False,
                 "error": e.message,
