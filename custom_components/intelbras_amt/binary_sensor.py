@@ -42,7 +42,6 @@ from .const import (
     DOMAIN,
     ENTITY_PREFIX,
     MAX_PARTITIONS,
-    MAX_ZONES_4010,
     MAX_ZONES_LOW_BATTERY,
     MAX_ZONES_SHORT_CIRCUIT,
     MAX_ZONES_TAMPER,
@@ -64,9 +63,9 @@ async def async_setup_entry(
     entities: list[BinarySensorEntity] = []
 
     # Determine max zones from coordinator data
-    max_zones = MAX_ZONES_4010
+    max_zones = 64
     if coordinator.data:
-        max_zones = coordinator.data.get(DATA_MAX_ZONES, MAX_ZONES_4010)
+        max_zones = coordinator.data.get(DATA_MAX_ZONES, 64)
 
     # Zone sensors (open, violated, bypassed)
     for zone_num in range(1, max_zones + 1):
