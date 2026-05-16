@@ -1,0 +1,36 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Intelbras AMT Alarm",
+        "description": "Configure the server to receive connections from your AMT panel. The panel must be configured to connect to Home Assistant's IP address on this port.",
+        "data": {
+          "port": "Port",
+          "password": "Password"
+        },
+        "data_description": {
+          "port": "TCP port to listen on (default: 9009)",
+          "password": "Remote access password (4-6 digits)"
+        }
+      }
+    },
+    "error": {
+      "invalid_port": "Invalid port number",
+      "invalid_password": "Password must be at least 4 digits",
+      "unknown": "Unexpected error"
+    },
+    "abort": {
+      "already_configured": "This port is already configured"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "AMT Options",
+        "data": {
+          "scan_interval": "Scan Interval (seconds)"
+        }
+      }
+    }
+  }
+}

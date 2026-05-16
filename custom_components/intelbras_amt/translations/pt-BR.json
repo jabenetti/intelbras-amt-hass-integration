@@ -1,0 +1,36 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Alarme Intelbras AMT",
+        "description": "Configure o servidor para receber conexões da central AMT. A central deve ser configurada para conectar ao IP do Home Assistant nesta porta.",
+        "data": {
+          "port": "Porta",
+          "password": "Senha"
+        },
+        "data_description": {
+          "port": "Porta TCP para escutar (padrão: 9009)",
+          "password": "Senha de acesso remoto (4-6 dígitos)"
+        }
+      }
+    },
+    "error": {
+      "invalid_port": "Número de porta inválido",
+      "invalid_password": "A senha deve ter pelo menos 4 dígitos",
+      "unknown": "Erro inesperado"
+    },
+    "abort": {
+      "already_configured": "Esta porta já está configurada"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Opções do AMT",
+        "data": {
+          "scan_interval": "Intervalo de Atualização (segundos)"
+        }
+      }
+    }
+  }
+}
